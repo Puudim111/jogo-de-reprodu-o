@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Jogo da Memória - Reprodução</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.6.1/pyscript.css">
+    <script defer src="https://pyscript.net/releases/2024.6.1/pyscript.js"></script>
+</head>
+<body>
+    <h1>Jogo da Memória - Reprodução</h1>
+    <div id="game-board"></div>
+    <p id="status">Encontre todos os pares!</p>
+
+    <py-script>
+from js import document, window
+import random
+
+# Pares: tipo ↔ exemplo
+cards_data = [
+    ("Sexuada", "Flores com polinização"),
+    ("Assexuada", "Bactérias se dividindo"),
+    ("Sexuada", "Animais com gametas"),
+    ("Assexuada", "Clonagem natural"),
+]
+
+# Duplicar e embaralhar
+cards = []
+for tipo, exemplo in cards_data:
+    cards.append({"text": tipo, "id": f"{tipo}-{random.randint(1,10000)}"})
+    cards.append({"text": exemplo, "id": f"{exemplo}-{random.randint(1,10000)}"})
+
+random.shuffle(cards)
+
+# Renderizar no tabuleiro
+board = document.getElementById("game-board")
+for card in cards:
+    div = document.createElement("div")
+    div.className = "card"
+    div.setAttribute("data-value", card["text"])
+    div.setAttribute("data-id", card["id"])
+    div.innerText = "?"
+    div.addEventListener("click", lambda e: flip_card(e.target))
+    board.appendChild(div)
+
+flipped = []
+matched = 0
+
+def flip_card(element):
+    global flipped, matched
+    if element.innerText != "?":
+        return  # já virada
+
+    element.innerText = element.getAttribute("data-value")
+    flipped.append(element)
+
+    if len(flipped) == 2:
+        if flipped[0].getAttribute("data-value") in flipped[1].getAttribute("data-value") or \
+           flipped[1].getAttribute("data-value") in flipped[0].getAttribute("data-value"):
+            matched += 1
+            flipped = []
+            if matched == len(cards_data):
+                document.getElementById("status").innerText = "Parabéns! Você encontrou todos os pares!"
+        else:
+            def hide_cards():
+                flipped[0].innerText = "?"
+                flipped[1].innerText = "?"
+                flipped.clear()
+            window.setTimeout(hide_cards, 1000)
+    </py-script>
+</body>
+</html>
