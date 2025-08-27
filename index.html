@@ -1,72 +1,286 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <title>Jogo da Memória - Reprodução</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://pyscript.net/releases/2024.6.1/pyscript.css">
-    <script defer src="https://pyscript.net/releases/2024.6.1/pyscript.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo da Memória</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #222;
+      color: white;
+    }
+
+    h1 {
+      margin: 20px;
+    }
+
+    #timer {
+      font-size: 20px;
+      margin-bottom: 15px;
+    }
+
+    .memory-game {
+      width: 640px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, 150px);
+      grid-gap: 10px;
+    }
+
+    .memory-card {
+      width: 150px;
+      height: 150px;
+      background: #444;
+      border-radius: 10px;
+      cursor: pointer;
+      position: relative;
+      transform: scale(1);
+      transition: transform 0.3s;
+      transform-style: preserve-3d;
+    }
+
+    .memory-card.flip {
+      transform: rotateY(180deg);
+    }
+
+    .front, .back {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      border-radius: 10px;
+      backface-visibility: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: black;
+    }
+
+    .front {
+      background: white;
+      transform: rotateY(180deg);
+    }
+
+    .back {
+      background: #00aaff;
+      color: white;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 10px;
+    }
+
+    /* Tela inicial */
+    #tela-inicial {
+      width: 80%;
+      max-width: 500px;
+      margin: 50px auto;
+      background: #222;
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    #tela-inicial button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-top: 20px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #00aaff;
+      color: white;
+    }
+
+    /* Esconde o jogo inicialmente */
+    #game-container {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-    <h1>Jogo da Memória - Reprodução</h1>
-    <div id="game-board"></div>
-    <p id="status">Encontre todos os pares!</p>
 
-    <py-script>
-from js import document, window
-import random
+  <!-- Tela inicial -->
+  <div id="tela-inicial">
+    <h1>Jogo da Memória</h1>
+    <p>Encontre os pares corretos de palavras e imagens!</p>
+    <p><strong>Regras:</strong></p>
+    <ul>
+      <li>Clique em uma carta para virá-la.</li>
+      <li>Tente encontrar o par correspondente (palavra ↔ imagem).</li>
+      <li>O jogo termina quando todos os pares forem encontrados.</li>
+      <li>O tempo será contado em minutos e segundos.</li>
+      <li>Você tem 5 minutos para completar o jogo.</li>
+    </ul>
+    <button id="btn-iniciar">Iniciar Jogo</button>
+  </div>
 
-# Pares: tipo ↔ exemplo
-cards_data = [
-    ("Sexuada", "Flores com polinização"),
-    ("Assexuada", "Bactérias se dividindo"),
-    ("Sexuada", "Animais com gametas"),
-    ("Assexuada", "Clonagem natural"),
-]
+  <!-- Jogo (tabuleiro) -->
+  <div id="game-container">
+    <p id="timer">Tempo: 5:00</p>
+    <div class="memory-game" id="game"></div>
+  </div>
 
-# Duplicar e embaralhar
-cards = []
-for tipo, exemplo in cards_data:
-    cards.append({"text": tipo, "id": f"{tipo}-{random.randint(1,10000)}"})
-    cards.append({"text": exemplo, "id": f"{exemplo}-{random.randint(1,10000)}"})
+  <script>
+    // Seletores
+    const telaInicial = document.getElementById("tela-inicial");
+    const gameContainer = document.getElementById("game-container");
+    const btnIniciar = document.getElementById("btn-iniciar");
 
-random.shuffle(cards)
+    // Evento para iniciar o jogo
+    btnIniciar.addEventListener("click", () => {
+      telaInicial.style.display = "none";
+      gameContainer.style.display = "block";
 
-# Renderizar no tabuleiro
-board = document.getElementById("game-board")
-for card in cards:
-    div = document.createElement("div")
-    div.className = "card"
-    div.setAttribute("data-value", card["text"])
-    div.setAttribute("data-id", card["id"])
-    div.innerText = "?"
-    div.addEventListener("click", lambda e: flip_card(e.target))
-    board.appendChild(div)
+      criarTabuleiro();
+      iniciarCronometro();
+    });
 
-flipped = []
-matched = 0
+    // ---- JOGO DA MEMÓRIA ----
 
-def flip_card(element):
-    global flipped, matched
-    if element.innerText != "?":
-        return  # já virada
+    const cardsData = [
+      { type: "img", content: "elefante.png", pair: "elefante" },
+      { type: "img", content: "elefante.png", pair: "elefante" },
 
-    element.innerText = element.getAttribute("data-value")
-    flipped.append(element)
+      { type: "img", content: "esponja.png", pair: "esponja" },
+      { type: "img", content: "esponja.png", pair: "esponja" },
 
-    if len(flipped) == 2:
-        if flipped[0].getAttribute("data-value") in flipped[1].getAttribute("data-value") or \
-           flipped[1].getAttribute("data-value") in flipped[0].getAttribute("data-value"):
-            matched += 1
-            flipped = []
-            if matched == len(cards_data):
-                document.getElementById("status").innerText = "Parabéns! Você encontrou todos os pares!"
-        else:
-            def hide_cards():
-                flipped[0].innerText = "?"
-                flipped[1].innerText = "?"
-                flipped.clear()
-            window.setTimeout(hide_cards, 1000)
-    </py-script>
+      { type: "img", content: "flor.png", pair: "flor" },
+      { type: "img", content: "flor.png", pair: "flor" },
+
+      { type: "img", content: "estrela.png", pair: "estrela" },
+      { type: "img", content: "estrela.png", pair: "estrela" },
+
+      { type: "img", content: "peixe.png", pair: "peixe" },
+      { type: "img", content: "peixe.png", pair: "peixe" },
+    ];
+
+    const game = document.getElementById("game");
+    const timerEl = document.getElementById("timer");
+
+    let shuffled, hasFlipped = false, lockBoard = false, firstCard, secondCard, matches = 0;
+    let tempo = 300; // 5 minutos
+    let intervalo = null;
+
+    // Função para criar o tabuleiro
+    function criarTabuleiro() {
+      shuffled = cardsData.sort(() => 0.5 - Math.random());
+      shuffled.forEach(card => {
+        const cardEl = document.createElement("div");
+        cardEl.classList.add("memory-card");
+        cardEl.dataset.pair = card.pair;
+
+        const front = document.createElement("div");
+        front.classList.add("front");
+        if (card.type === "word") {
+          front.textContent = card.content;
+        } else {
+          const img = document.createElement("img");
+          img.src = card.content;
+          front.appendChild(img);
+        }
+
+        const back = document.createElement("div");
+        back.classList.add("back");
+        back.textContent = "?";
+
+        cardEl.appendChild(front);
+        cardEl.appendChild(back);
+        game.appendChild(cardEl);
+
+        cardEl.addEventListener("click", flipCard);
+      });
+    }
+
+    // ---- CRONÔMETRO ----
+    function atualizarTimer() {
+      const minutos = Math.floor(tempo / 60);
+      const segundos = tempo % 60;
+      timerEl.textContent = `Tempo: ${minutos}:${segundos.toString().padStart(2, "0")}`;
+    }
+
+    function iniciarCronometro() {
+      atualizarTimer(); // mostra o tempo inicial
+      intervalo = setInterval(() => {
+        tempo--;
+        atualizarTimer();
+
+        if (tempo <= 0) {
+          clearInterval(intervalo);
+          alert("⏰ Tempo esgotado! Tente novamente.");
+          // opcional: bloquear tabuleiro
+          lockBoard = true;
+        }
+      }, 1000);
+    }
+
+    function pararCronometro() {
+      clearInterval(intervalo);
+    }
+
+    // ---- FUNÇÕES DO JOGO ----
+    function flipCard() {
+      if (lockBoard) return;
+      if (this === firstCard) return;
+
+      this.classList.add("flip");
+
+      if (!hasFlipped) {
+        hasFlipped = true;
+        firstCard = this;
+        return;
+      }
+
+      secondCard = this;
+      checkMatch();
+    }
+
+    function checkMatch() {
+      if (firstCard.dataset.pair === secondCard.dataset.pair) {
+        disableCards();
+      } else {
+        unflipCards();
+      }
+    }
+
+    function disableCards() {
+      firstCard.removeEventListener("click", flipCard);
+      secondCard.removeEventListener("click", flipCard);
+
+      matches++;
+      if (matches === cardsData.length / 2) {
+        pararCronometro();
+        const tempoGasto = 300 - tempo;
+        const minutos = Math.floor(tempoGasto / 60);
+        const segundos = tempoGasto % 60;
+        setTimeout(() => {
+          alert(`🎉 Parabéns! Você encontrou todos os pares em ${minutos}:${segundos.toString().padStart(2, "0")} minutos!`);
+        }, 500);
+      }
+
+      resetBoard();
+    }
+
+    function unflipCards() {
+      lockBoard = true;
+      setTimeout(() => {
+        firstCard.classList.remove("flip");
+        secondCard.classList.remove("flip");
+        resetBoard();
+      }, 1000);
+    }
+
+    function resetBoard() {
+      [hasFlipped, lockBoard] = [false, false];
+      [firstCard, secondCard] = [null, null];
+    }
+  </script>
 </body>
 </html>
+
